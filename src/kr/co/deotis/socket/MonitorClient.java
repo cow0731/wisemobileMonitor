@@ -10,6 +10,11 @@ import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.io.OutputStreamWriter;
 import java.net.UnknownHostException;
+import java.nio.ByteBuffer;
+import java.nio.channels.SelectionKey;
+import java.nio.channels.Selector;
+import java.nio.channels.SocketChannel;
+import java.util.Iterator;
 
 
 public class MonitorClient extends Thread {
@@ -23,24 +28,75 @@ public class MonitorClient extends Thread {
 	InputStream is;
 	BufferedReader br;
 	
+	MonitorWriter mw;
 	InetSocketAddress isa = null;
+	Selector sel = null;
+	SocketChannel writech;
+	SocketChannel readch;
 	
 	public MonitorClient(String ip, int port) {
 		this.ip = ip;
 		this.port = port;
+		try {
+			sel = Selector.open();
+			isa = new InetSocketAddress(ip, port);
+			writech = SocketChannel.open(isa);
+			writech.configureBlocking(false);
+			writech.register(sel, SelectionKey.OP_READ);
+			
+			mw = new MonitorWriter(writech);
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
 	}
 	
 	@Override
 	public void run() {
+		
+		Thread tw = new Thread(mw);
+		tw.start();
+		readStart();
+	}
+	
+	public void readStart() {
+		while(writech.isConnected()) {
+			try {
+				sel.select();
+				Iterator<SelectionKey> iter = sel.selectedKeys().iterator();
+				
+				while(iter.hasNext()) {
+					SelectionKey key = iter.next();
+					if(key.isReadable()) {
+						read(key);
+					}
+					iter.remove();
+				}
+			} catch (IOException e) {
+				e.printStackTrace();
+			}
+		}
+	}
+	
+	public void read(SelectionKey key) {
+		
+		readch = (SocketChannel)key.channel();
+		ByteBuffer rbuffer = ByteBuffer.allocateDirect(2048);
+		byte[] byteArr;
+		
+		rbuffer.position(0);
 		try {
-			sock = new Socket(ip, port);
-			writeData();
-			readData();
-		} catch (UnknownHostException e) {
-			e.printStackTrace();
+			int readByte = readch.read(rbuffer);
+			rbuffer.flip();
+			byteArr = new byte[rbuffer.limit()];
+			rbuffer.get(byteArr);
+			
+			String revPacket = new String(byteArr);
+			System.out.println(readByte+", "+revPacket);
+			
 		} catch (IOException e) {
 			e.printStackTrace();
 		}
+		
 	}
 	
 	public void writeData() throws IOException {
