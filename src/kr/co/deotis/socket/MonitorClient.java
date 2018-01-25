@@ -9,19 +9,30 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.io.OutputStreamWriter;
-import java.net.UnknownHostException;
 import java.nio.ByteBuffer;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.Selector;
 import java.nio.channels.SocketChannel;
+import java.text.SimpleDateFormat;
+import java.util.Date;
+import java.util.HashMap;
 import java.util.Iterator;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 
 public class MonitorClient extends Thread {
 	
+	Logger logger = LoggerFactory.getLogger("Main");
+	ConcurrentMap<String, String> stateCode = new ConcurrentHashMap<>();
+	
 	public static MonitorClient mc = null;
 	String ip = null;
 	int port = 0;
+	int sec = 0;
 	Socket sock = null;
 	OutputStream os;
 	BufferedWriter bw;
@@ -34,9 +45,10 @@ public class MonitorClient extends Thread {
 	SocketChannel writech;
 	SocketChannel readch;
 	
-	public MonitorClient(String ip, int port) {
+	public MonitorClient(String ip, int port, int sec) {
 		this.ip = ip;
 		this.port = port;
+		this.sec = sec;
 		try {
 			sel = Selector.open();
 			isa = new InetSocketAddress(ip, port);
@@ -44,7 +56,7 @@ public class MonitorClient extends Thread {
 			writech.configureBlocking(false);
 			writech.register(sel, SelectionKey.OP_READ);
 			
-			mw = new MonitorWriter(writech);
+			mw = new MonitorWriter(writech, sec);
 		} catch (IOException e) {
 			e.printStackTrace();
 		}
@@ -85,18 +97,52 @@ public class MonitorClient extends Thread {
 		
 		rbuffer.position(0);
 		try {
+			@SuppressWarnings("unused")
 			int readByte = readch.read(rbuffer);
 			rbuffer.flip();
 			byteArr = new byte[rbuffer.limit()];
 			rbuffer.get(byteArr);
 			
 			String revPacket = new String(byteArr);
-			System.out.println(readByte+", "+revPacket);
+			logger.debug("[{}]", revPacket);
+			analysisPacket(revPacket);
 			
 		} catch (IOException e) {
 			e.printStackTrace();
 		}
 		
+	}
+	
+	public void analysisPacket(String packet) {
+		int headInt = Integer.parseInt(packet.substring(0, 4));
+		int bodyLen = packet.substring(4).length();
+		
+		if(headInt == bodyLen) {
+			logger.debug("packet recieve success");
+			int statelen = Integer.parseInt(packet.substring(34, 35));
+			String data = packet.substring(35);
+			String[] detailData = data.split("`");
+			
+			for (int i = 0; i < detailData.length; i++) {
+				String[] keyValue = detailData[i].split(";");
+				String key = keyValue[0];
+				String value = keyValue[1];
+				stateCode.put(key, value);
+			}
+			
+			String time = stateCode.get("TIME");
+			String scode = stateCode.get("SCODE");
+			String msg = null;
+			if(detailData.length == 3) {
+				msg = stateCode.get("MSG");
+			}
+			
+			SimpleDateFormat sdf = new SimpleDateFormat("yyyy:MM:dd-hh:mm:ss");
+			String dateTime = sdf.format(new Date(Long.parseLong(time)));
+			logger.debug("{}", dateTime);
+			logger.debug("{}", scode);
+			logger.debug("{}", msg);
+		}
 	}
 	
 	public void writeData() throws IOException {
@@ -134,8 +180,5 @@ public class MonitorClient extends Thread {
 			e.printStackTrace();
 		}
 	}*/
-	
-	public void makePacket() {
-		
-	}
+
 }

@@ -4,14 +4,21 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.SocketChannel;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 public class MonitorWriter implements Runnable {
 
+	Logger logger = LoggerFactory.getLogger("Main");
+	
+	int sec = 0;
 	SocketChannel writech;
 	ByteBuffer wbuffer;
-	String packet = "003101029588040             2M    3";
+	String packet = "00310000                    2M    3";
 	
-	public MonitorWriter(SocketChannel writech) {
+	public MonitorWriter(SocketChannel writech, int sec) {
 		this.writech = writech; 
+		this.sec = sec;
 	}
 	
 	@Override
@@ -23,9 +30,11 @@ public class MonitorWriter implements Runnable {
 			wbuffer.clear();
 			wbuffer = ByteBuffer.wrap(packet.getBytes());
 			try {
-				int writeLen = writech.write(wbuffer);
-				System.out.println(writeLen);
-				Thread.sleep(5000);
+				int writeOk = writech.write(wbuffer);
+				if(writeOk > 0) {
+					logger.debug("[{}]", packet);
+				}
+				Thread.sleep(sec);
 				
 			} catch (IOException e) {
 				e.printStackTrace();
