@@ -17,7 +17,7 @@
   </appender> -->
     
   <appender name="file" class="ch.qos.logback.core.rolling.RollingFileAppender">
-    <File>./log/wisemobileMonitor.log</File>
+    <File>../../log/wisemobileMonitor.log</File>
     <encoder>
       <pattern>%-5level[%d{HH:mm:ss.SSS}][%-25file:%6line]-%m%n</pattern>
     </encoder>
@@ -25,7 +25,7 @@
       <level>TRACE</level>
     </filter>
     <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
-      <fileNamePattern>./log/wisemobileMonitor.log.%d{yyyy-MM-dd}.zip</fileNamePattern>
+      <fileNamePattern>../../log/wisemobileMonitor.log.%d{yyyy-MM-dd}.zip</fileNamePattern>
       <maxHistory>90</maxHistory>
     </rollingPolicy>
   </appender>

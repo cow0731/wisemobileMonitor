@@ -15,7 +15,6 @@ import java.nio.channels.Selector;
 import java.nio.channels.SocketChannel;
 import java.text.SimpleDateFormat;
 import java.util.Date;
-import java.util.HashMap;
 import java.util.Iterator;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
@@ -28,8 +27,10 @@ public class MonitorClient extends Thread {
 	
 	Logger logger = LoggerFactory.getLogger("Main");
 	ConcurrentMap<String, String> stateCode = new ConcurrentHashMap<>();
+	ConcurrentMap<String, String> stateHangle = new ConcurrentHashMap<>();
 	
 	public static MonitorClient mc = null;
+	private MonitorWebsocket mwsocket = null;
 	String ip = null;
 	int port = 0;
 	int sec = 0;
@@ -45,10 +46,11 @@ public class MonitorClient extends Thread {
 	SocketChannel writech;
 	SocketChannel readch;
 	
-	public MonitorClient(String ip, int port, int sec) {
+	public MonitorClient(String ip, int port, int sec, MonitorWebsocket websocket, boolean mSvc) {
 		this.ip = ip;
 		this.port = port;
 		this.sec = sec;
+		this.mwsocket = websocket;
 		try {
 			sel = Selector.open();
 			isa = new InetSocketAddress(ip, port);
@@ -56,7 +58,13 @@ public class MonitorClient extends Thread {
 			writech.configureBlocking(false);
 			writech.register(sel, SelectionKey.OP_READ);
 			
-			mw = new MonitorWriter(writech, sec);
+			mw = new MonitorWriter(writech, sec, mwsocket);
+			stateHangle.put("000", "정상");
+			stateHangle.put("001", "DB 접속 안됨");
+			stateHangle.put("002", "https프로세스 장애 상황");
+			stateHangle.put("003", "smartARS프로세스 장애 상황");
+			stateHangle.put("004", "UpdateServer 장애 상황");
+			
 		} catch (IOException e) {
 			e.printStackTrace();
 		}
@@ -76,7 +84,7 @@ public class MonitorClient extends Thread {
 				sel.select();
 				Iterator<SelectionKey> iter = sel.selectedKeys().iterator();
 				
-				while(iter.hasNext()) {
+				while(iter.hasNext() && mwsocket.isMService()) {
 					SelectionKey key = iter.next();
 					if(key.isReadable()) {
 						read(key);
@@ -119,6 +127,7 @@ public class MonitorClient extends Thread {
 		
 		if(headInt == bodyLen) {
 			logger.debug("packet recieve success");
+			@SuppressWarnings("unused")
 			int statelen = Integer.parseInt(packet.substring(34, 35));
 			String data = packet.substring(35);
 			String[] detailData = data.split("`");
@@ -139,9 +148,21 @@ public class MonitorClient extends Thread {
 			
 			SimpleDateFormat sdf = new SimpleDateFormat("yyyy:MM:dd-hh:mm:ss");
 			String dateTime = sdf.format(new Date(Long.parseLong(time)));
-			logger.debug("{}", dateTime);
-			logger.debug("{}", scode);
-			logger.debug("{}", msg);
+			logger.debug("Time : {}", dateTime);
+			logger.debug("Scode : {}", scode);
+			logger.debug("Msg : {}", msg);
+			
+			mwsocket.setTIME(dateTime);
+			mwsocket.setSCODE(scode);
+			if(Integer.parseInt(scode) >= 1) {
+				mwsocket.setMSG(msg);
+			}
+			String sendPacket = "";
+			sendPacket += dateTime+"`"+stateHangle.get(scode);
+			if(detailData.length == 3) {
+				sendPacket += "`"+msg;
+			}
+			mwsocket.sendToWeb(sendPacket);
 		}
 	}
 	

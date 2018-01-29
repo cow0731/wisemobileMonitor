@@ -31,8 +31,8 @@ public class MonitorServer {
 		
 		logger.debug("ip : {}, port : {}, sec : {}", ip, port, sec);
 		
-		mc = new MonitorClient(ip, port, sec);
-		mc.start();
+		/*mc = new MonitorClient(ip, port, sec);
+		mc.start();*/
 	}
 	
 	public static void main(String[] args) {
