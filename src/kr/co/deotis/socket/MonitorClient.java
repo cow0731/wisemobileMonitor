@@ -146,13 +146,15 @@ public class MonitorClient extends Thread {
 				msg = stateCode.get("MSG");
 			}
 			
-			SimpleDateFormat sdf = new SimpleDateFormat("yyyy:MM:dd-hh:mm:ss");
-			String dateTime = sdf.format(new Date(Long.parseLong(time)));
+			SimpleDateFormat sdf = new SimpleDateFormat("yyyy:MM:dd-HH:mm:ss");
+			String errorTime = sdf.format(new Date(Long.parseLong(time)));
+			String dateTime = sdf.format(new Date());
+			
 			logger.debug("Time : {}", dateTime);
 			logger.debug("Scode : {}", scode);
 			logger.debug("Msg : {}", msg);
 			
-			mwsocket.setTIME(dateTime);
+			mwsocket.setTIME(errorTime);
 			mwsocket.setSCODE(scode);
 			if(Integer.parseInt(scode) >= 1) {
 				mwsocket.setMSG(msg);
@@ -160,7 +162,8 @@ public class MonitorClient extends Thread {
 			String sendPacket = "";
 			sendPacket += dateTime+"`"+stateHangle.get(scode);
 			if(detailData.length == 3) {
-				sendPacket += "`"+msg;
+				logger.debug("error state.");
+				sendPacket += "`"+msg+"`"+errorTime;
 			}
 			mwsocket.sendToWeb(sendPacket);
 		}

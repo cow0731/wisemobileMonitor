@@ -1,14 +1,14 @@
 <!DOCTYPE html>
-
+<%@ page language="java" contentType="text/html; charset=UTF-8" pageEncoding="UTF-8" %>
 <%@page import="org.slf4j.LoggerFactory"%><%@page import="org.slf4j.Logger"%>
 <%@page import="kr.co.deotis.config.MntProperties"%>
 <html>
 <head>
-	<meta charset="EUC-KR">
+	<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
 	<title>Web Monitor</title>
 	
 	<style type="text/css">
-		#msg { border:1px solid #eee; padding:10px 20px; overflow-y: scroll; max-height: 800px;	}
+		#container { border:1px solid #eee; padding:10px 20px; /* overflow-y: scroll; */ max-height: 800px;	}
 	</style>
 	
 	<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
@@ -40,28 +40,21 @@
 			
 		ws.onopen = function() {
 			//document.getElementById("msg").innerText += 'Info: WebSocket connection opened.\n';
-			$("#msg").append('<p> monitoring Start. </p>');
+			$("#start").append('<p> monitoring Start. </p>');
 		};
 		ws.onmessage = function(event) {
 			//document.getElementById("msg").innerText += event.data+'\n';
+			$('#msg').empty();
+			
 			var p = event.data;
 			var pArr = p.split('`');
-			var mData = '';
-			for (var i = 0; i < pArr.length; i++) {
-				mData += pArr[i];
-			}
 			
 			if(pArr.length == 2) {
-				appendLogMsg(pArr[0], pArr[1]);
+				appendLogMsg2(pArr[0], pArr[1]);
 			} else {
-				appendLogMsg(pArr[0], pArr[1], pArr[2]);
+				appendLogMsg4(pArr[0], pArr[1], pArr[2], pArr[3]);
 			}
 			
-			if(pArr[1]=='정상') {
-				$('span[class="stat"]').css("background", "green");
-			}else {
-				$('span[class="stat"]').css("background", "red");
-			}
 			send();
 		};
 		ws.onclose = function() {
@@ -74,21 +67,24 @@
 			ws.send(text);
 		}
 		
-		var appendLogMsg = function(time, code) {		// 로그에 메세지 추가하기
+		var appendLogMsg2 = function(time, code) {		// 로그에 메세지 추가하기
 			var sp1 = '<span>'+time+'</span>';
 			var sp2 = '<span class="stat">'+code+'</span>';
 			$("#msg")
 			.append('<p class="muted">' + sp1+"&emsp;"+sp2+ '</p>')
 			.scrollTop(100000000);
+			$('span[class="stat"]').css("background", "green");
 		}
 		
-		var appendLogMsg = function(time, code, msg) {		// 로그에 메세지 추가하기
+		var appendLogMsg4 = function(time, code, msg, errorTime) {		// 로그에 메세지 추가하기
 			var sp1 = '<span>'+time+'</span>';
 			var sp2 = '<span class="stat">'+code+'</span>';
-			var sp3 = '<span>'+msg+'</span>';
+			var sp3 = '<span>'+"에러메세지 : "+msg+'</span>';
+			var sp4 = '<span>'+"발생시간 : "+errorTime+'</span>';
 			$("#msg")
-			.append('<p class="muted">' + sp1+"&emsp;"+sp2+"&emsp;"+sp3 + '</p>')
+			.append('<p class="muted">' + sp1+"&emsp;"+sp2+"&emsp;"+sp3 +"&emsp;"+sp4+ '</p>')
 			.scrollTop(100000000);
+			$('span[class="stat"]').css("background", "red");
 		}
 
 	</script>
@@ -96,6 +92,7 @@
 <body>
 	<h4>wisemobile Monitor</h4>
 	<div id="container">
+		<div id="start"></div>
 		<div id="msg"></div>
 	</div>
 </body>
