@@ -46,11 +46,11 @@ public class MonitorClient extends Thread {
 	SocketChannel writech;
 	SocketChannel readch;
 	
-	public MonitorClient(String ip, int port, int sec, MonitorWebsocket websocket, boolean mSvc) {
+	public MonitorClient(String ip, int port, int sec, MonitorWebsocket mweb) {
 		this.ip = ip;
 		this.port = port;
 		this.sec = sec;
-		this.mwsocket = websocket;
+		this.mwsocket = mweb;
 		try {
 			sel = Selector.open();
 			isa = new InetSocketAddress(ip, port);
@@ -58,7 +58,7 @@ public class MonitorClient extends Thread {
 			writech.configureBlocking(false);
 			writech.register(sel, SelectionKey.OP_READ);
 			
-			mw = new MonitorWriter(writech, sec, mwsocket);
+			mw = new MonitorWriter(writech, sec);
 			stateHangle.put("000", "정상");
 			stateHangle.put("001", "DB 접속 안됨");
 			stateHangle.put("002", "https프로세스 장애 상황");
@@ -84,7 +84,7 @@ public class MonitorClient extends Thread {
 				sel.select();
 				Iterator<SelectionKey> iter = sel.selectedKeys().iterator();
 				
-				while(iter.hasNext() && mwsocket.isMService()) {
+				while(iter.hasNext()) {
 					SelectionKey key = iter.next();
 					if(key.isReadable()) {
 						read(key);
@@ -154,18 +154,22 @@ public class MonitorClient extends Thread {
 			logger.debug("Scode : {}", scode);
 			logger.debug("Msg : {}", msg);
 			
-			mwsocket.setTIME(errorTime);
+			/*mwsocket.setTIME(errorTime);
 			mwsocket.setSCODE(scode);
 			if(Integer.parseInt(scode) >= 1) {
 				mwsocket.setMSG(msg);
-			}
+			}*/
 			String sendPacket = "";
 			sendPacket += dateTime+"`"+stateHangle.get(scode);
 			if(detailData.length == 3) {
 				logger.debug("error state.");
 				sendPacket += "`"+msg+"`"+errorTime;
 			}
-			mwsocket.sendToWeb(sendPacket);
+			
+			if(mwsocket.isMService()) {
+				mwsocket.sendToWeb(sendPacket);
+				System.out.println("session is not null");
+			}
 		}
 	}
 	

@@ -17,16 +17,16 @@ public class MonitorWriter implements Runnable {
 	ByteBuffer wbuffer;
 	String packet = "00310000                    2M    3";
 	
-	public MonitorWriter(SocketChannel writech, int sec, MonitorWebsocket wmsocket) {
+	public MonitorWriter(SocketChannel writech, int sec) {
 		this.writech = writech; 
 		this.sec = sec;
-		this.wmsocket = wmsocket;
+		//this.wmsocket = wmsocket;
 	}
 	
 	@Override
 	public void run() {
 		
-		while(!Thread.currentThread().isInterrupted() && wmsocket.isMService()) {
+		while(!Thread.currentThread().isInterrupted()) {
 			
 			wbuffer = ByteBuffer.allocateDirect(1024);
 			wbuffer.clear();

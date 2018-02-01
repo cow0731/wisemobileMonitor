@@ -5,6 +5,7 @@ import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.net.URL;
 import java.util.Properties;
 
 public class MntProperties {
@@ -90,6 +91,20 @@ public class MntProperties {
 		} catch (Exception e) {
 			System.out.println(e.getMessage());
 		}
+	}
+	
+	public String realPath(String path) {
+		
+		URL confile = Thread.currentThread().getContextClassLoader().getResource(path);
+		String filePath = confile.getPath().substring(1);
+
+		if(filePath.contains("build")) {		// eclipse
+			filePath = filePath.replace("build/classes", "WebContent/WEB-INF/conf");
+		} else if(filePath.contains("classes")) {	// tomcat
+			filePath = filePath.replace("classes", "conf");
+		}
+		
+		return filePath;
 	}
 	
 }
