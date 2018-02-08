@@ -55,17 +55,18 @@ public class MonitorClient extends Thread {
 	SocketChannel readch;
 	int cnt = 0;
 	
-	public MonitorClient(String ip, int port, int sec, MonitorWebsocket websocket, boolean mSvc) {
+	public MonitorClient(String ip, int port, int sec, MonitorWebsocket mweb) {
 		this.ip = ip;
 		this.port = port;
 		this.sec = sec;
-		this.mwsocket = websocket;
+		this.mwsocket = mweb;
 		try {
 			sel = Selector.open();
 			isa = new InetSocketAddress(ip, port);
 			writech = SocketChannel.open(isa);
 			writech.configureBlocking(false);
 			writech.register(sel, SelectionKey.OP_READ);
+<<<<<<< HEAD
 		} catch (ConnectException e1) {
 			logger.debug("SocketConnectionException", e1);
 			mwsocket.sendToWeb("Connection Error.");
@@ -75,6 +76,18 @@ public class MonitorClient extends Thread {
 		} catch (IOException e3) {
 			logger.debug("IOConnectionException", e3);
 			mwsocket.sendToWeb("IOConnection Error.");
+=======
+			
+			mw = new MonitorWriter(writech, sec);
+			stateHangle.put("000", "정상");
+			stateHangle.put("001", "DB 접속 안됨");
+			stateHangle.put("002", "https프로세스 장애 상황");
+			stateHangle.put("003", "smartARS프로세스 장애 상황");
+			stateHangle.put("004", "UpdateServer 장애 상황");
+			
+		} catch (IOException e) {
+			e.printStackTrace();
+>>>>>>> branch 'master' of https://github.com/cow0731/wisemobileMonitor.git
 		}
 		
 		mw = new MonitorWriter(writech, sec, mwsocket);
@@ -100,7 +113,12 @@ public class MonitorClient extends Thread {
 				System.out.println("readStart 부분");
 				sel.select();
 				Iterator<SelectionKey> iter = sel.selectedKeys().iterator();
+<<<<<<< HEAD
 				while(iter.hasNext() && mwsocket.isMService()) {
+=======
+				
+				while(iter.hasNext()) {
+>>>>>>> branch 'master' of https://github.com/cow0731/wisemobileMonitor.git
 					SelectionKey key = iter.next();
 					if(key.isReadable()) {
 						read(key);
@@ -210,22 +228,34 @@ public class MonitorClient extends Thread {
 			logger.debug("Scode : {}", scode);
 			logger.debug("Msg : {}", msg);
 			
+<<<<<<< HEAD
 			mwsocket.setTIME(dateTime);
+=======
+			/*mwsocket.setTIME(errorTime);
+>>>>>>> branch 'master' of https://github.com/cow0731/wisemobileMonitor.git
 			mwsocket.setSCODE(scode);
 			if(Integer.parseInt(scode) >= 1) {
 				mwsocket.setMSG(msg);
+<<<<<<< HEAD
 			}
 			
 			// 에러시 메일 발송
 			if(dateTime.equals(errorTime) && detailData.length == 3) {
 					mail.userSendMail(ip+"`"+port+"`"+errorTime+"`"+msg);
 			}
+=======
+			}*/
+>>>>>>> branch 'master' of https://github.com/cow0731/wisemobileMonitor.git
 			String sendPacket = "";
 			sendPacket += dateTime+"`"+stateHangle.get(scode);
 			if(detailData.length == 3) {
 				sendPacket += "`"+msg+"`"+errorTime;
 			}
-			mwsocket.sendToWeb(sendPacket);
+			
+			if(mwsocket.isMService()) {
+				mwsocket.sendToWeb(sendPacket);
+				System.out.println("session is not null");
+			}
 		}
 	}
 	

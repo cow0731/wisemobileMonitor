@@ -38,13 +38,14 @@
 				ws = new WebSocket(target);
 			} else if('MozWebSocket' in window) {
 				ws = new MozWebSocket(target);
-			} else {
+			} else { 
 				alert("WebSocket is not supported by this browser");
 				return;
 			}
 		})();
 			
-		ws.onopen = function() {
+		ws.onopen = function(event) {
+			ws.send("durl");
 			//document.getElementById("msg").innerText += 'Info: WebSocket connection opened.\n';
 			$("#start").append('<p> monitoring Start. </p>');
 		};
