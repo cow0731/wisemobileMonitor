@@ -15,6 +15,12 @@
 	<script type="text/javascript">
 		var ws = null;
 		
+		/* $(document).ready(function() {
+			$("#connect").click(function() {
+				directlyFc();
+			});	
+		}); */
+		
 		(function() {
 			<% 
 				Logger logger = LoggerFactory.getLogger("Main");
@@ -36,7 +42,7 @@
 				alert("WebSocket is not supported by this browser");
 				return;
 			}
-		})()
+		})();
 			
 		ws.onopen = function() {
 			//document.getElementById("msg").innerText += 'Info: WebSocket connection opened.\n';
@@ -48,11 +54,14 @@
 			
 			var p = event.data;
 			var pArr = p.split('`');
+			console.log(p);
 			
 			if(pArr.length == 2) {
 				appendLogMsg2(pArr[0], pArr[1]);
-			} else {
+			} else if(pArr.length == 4) {
 				appendLogMsg4(pArr[0], pArr[1], pArr[2], pArr[3]);
+			} else {
+				appendMessage(p);
 			}
 			
 			send();
@@ -67,13 +76,23 @@
 			ws.send(text);
 		}
 		
+		var appendMessage = function(msg) {
+			$("#msg")
+			.append('<p class="error"><span>'+msg+'</span></p>')
+			.scrollTop(100000000);
+		}
+		
 		var appendLogMsg2 = function(time, code) {		// 로그에 메세지 추가하기
+			
 			var sp1 = '<span>'+time+'</span>';
 			var sp2 = '<span class="stat">'+code+'</span>';
 			$("#msg")
 			.append('<p class="muted">' + sp1+"&emsp;"+sp2+ '</p>')
 			.scrollTop(100000000);
-			$('span[class="stat"]').css("background", "green");
+			
+			if(code=='정상') {
+				$('span[class="stat"]').css("background", "green");
+			}
 		}
 		
 		var appendLogMsg4 = function(time, code, msg, errorTime) {		// 로그에 메세지 추가하기
@@ -91,6 +110,7 @@
 </head>
 <body>
 	<h4>wisemobile Monitor</h4>
+	<button id="connect" onclick="window.location.reload()">접속</button>
 	<div id="container">
 		<div id="start"></div>
 		<div id="msg"></div>

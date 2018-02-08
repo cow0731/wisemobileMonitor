@@ -39,6 +39,7 @@ public class MonitorWebsocket {
 		mService = true;
 		logger.debug("websocket open!!");
 		
+		this.session = session;
 		MntProperties prop = new MntProperties();
 		
 		URL confile = Thread.currentThread().getContextClassLoader().getResource("property.ini");
@@ -56,14 +57,12 @@ public class MonitorWebsocket {
 		int sec = Integer.parseInt(prop.getPropertiesString(filePath, "sec", "5000"));
 		
 		logger.debug("serverIp : {}, serverPort : {}, sec : {}", ip, port, sec);
-		
 		mc = new MonitorClient(ip, port, sec, this, mService);
 		mc.start();
 		
 		/*String[] params = session.getQueryString().split("&");
 		String usr = params[0].split("=")[1];
 		session.getUserProperties().put("user", usr);*/
-		this.session = session;
 	}
 	
 	public void sendToWeb(String msg) {

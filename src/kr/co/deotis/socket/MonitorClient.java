@@ -1,7 +1,9 @@
 package kr.co.deotis.socket;
 
+import java.net.ConnectException;
 import java.net.InetSocketAddress;
 import java.net.Socket;
+import java.net.SocketTimeoutException;
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.IOException;
@@ -10,9 +12,11 @@ import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.io.OutputStreamWriter;
 import java.nio.ByteBuffer;
+import java.nio.CharBuffer;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.Selector;
 import java.nio.channels.SocketChannel;
+import java.nio.charset.Charset;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.Iterator;
@@ -22,12 +26,16 @@ import java.util.concurrent.ConcurrentMap;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import kr.co.deotis.mail.MailSender;
+
 
 public class MonitorClient extends Thread {
 	
 	Logger logger = LoggerFactory.getLogger("Main");
 	ConcurrentMap<String, String> stateCode = new ConcurrentHashMap<>();
 	ConcurrentMap<String, String> stateHangle = new ConcurrentHashMap<>();
+	SimpleDateFormat sdf = new SimpleDateFormat("yyyy:MM:dd-HH:mm:ss");
+	MailSender mail = new MailSender();
 	
 	public static MonitorClient mc = null;
 	private MonitorWebsocket mwsocket = null;
@@ -45,6 +53,7 @@ public class MonitorClient extends Thread {
 	Selector sel = null;
 	SocketChannel writech;
 	SocketChannel readch;
+	int cnt = 0;
 	
 	public MonitorClient(String ip, int port, int sec, MonitorWebsocket websocket, boolean mSvc) {
 		this.ip = ip;
@@ -57,17 +66,23 @@ public class MonitorClient extends Thread {
 			writech = SocketChannel.open(isa);
 			writech.configureBlocking(false);
 			writech.register(sel, SelectionKey.OP_READ);
-			
-			mw = new MonitorWriter(writech, sec, mwsocket);
-			stateHangle.put("000", "정상");
-			stateHangle.put("001", "DB 접속 안됨");
-			stateHangle.put("002", "https프로세스 장애 상황");
-			stateHangle.put("003", "smartARS프로세스 장애 상황");
-			stateHangle.put("004", "UpdateServer 장애 상황");
-			
-		} catch (IOException e) {
-			e.printStackTrace();
+		} catch (ConnectException e1) {
+			logger.debug("SocketConnectionException", e1);
+			mwsocket.sendToWeb("Connection Error.");
+		} catch (SocketTimeoutException e2) {
+			logger.debug("SocketTimeoutException", e2);
+			mwsocket.sendToWeb("SocketTimeout Error.");
+		} catch (IOException e3) {
+			logger.debug("IOConnectionException", e3);
+			mwsocket.sendToWeb("IOConnection Error.");
 		}
+		
+		mw = new MonitorWriter(writech, sec, mwsocket);
+		stateHangle.put("000", "정상");
+		stateHangle.put("001", "DB 접속 안됨");
+		stateHangle.put("002", "https프로세스 장애 상황");
+		stateHangle.put("003", "smartARS프로세스 장애 상황");
+		stateHangle.put("004", "UpdateServer 장애 상황");
 	}
 	
 	@Override
@@ -79,11 +94,12 @@ public class MonitorClient extends Thread {
 	}
 	
 	public void readStart() {
+		cnt=0;
 		while(writech.isConnected()) {
 			try {
+				System.out.println("readStart 부분");
 				sel.select();
 				Iterator<SelectionKey> iter = sel.selectedKeys().iterator();
-				
 				while(iter.hasNext() && mwsocket.isMService()) {
 					SelectionKey key = iter.next();
 					if(key.isReadable()) {
@@ -99,26 +115,66 @@ public class MonitorClient extends Thread {
 	
 	public void read(SelectionKey key) {
 		
+		Charset charset = Charset.forName("UTF-8");
+		
 		readch = (SocketChannel)key.channel();
 		ByteBuffer rbuffer = ByteBuffer.allocateDirect(2048);
-		byte[] byteArr;
-		
+		//byte[] byteArr;
+
 		rbuffer.position(0);
 		try {
 			@SuppressWarnings("unused")
 			int readByte = readch.read(rbuffer);
 			rbuffer.flip();
-			byteArr = new byte[rbuffer.limit()];
-			rbuffer.get(byteArr);
+			CharBuffer cb = charset.decode(rbuffer);
+			//byteArr = new byte[rbuffer.limit()];
+			//buffer.get(byteArr);
 			
-			String revPacket = new String(byteArr);
+			//String revPacket = new String(byteArr);
+			String revPacket = cb.toString();
 			logger.debug("[{}]", revPacket);
 			analysisPacket(revPacket);
 			
 		} catch (IOException e) {
+			cnt++;
+			String dateTime = sdf.format(new Date());
 			e.printStackTrace();
+			logger.debug("socket readChannel disconnect", e);
+			mwsocket.sendToWeb(dateTime+"`readChannel Error.");
+			if(cnt == 1) {
+				mail.userSendMail(ip+"`"+port+"`"+dateTime+"`"+"socket read error");
+			}
+			try {
+				Thread reconnect = new Thread(new Runnable() {
+					
+					@Override
+					public void run() {
+						try {
+							sel = Selector.open();
+							isa = new InetSocketAddress(ip, port);
+							writech = SocketChannel.open(isa);
+							writech.configureBlocking(false);
+							writech.register(sel, SelectionKey.OP_READ);
+							mw = new MonitorWriter(writech, sec, mwsocket);
+							
+							System.out.println("소켓 연결 성공!");
+						} catch (IOException e) {
+							e.printStackTrace();
+							System.out.println(writech.hashCode());
+							System.out.println("소켓 연결 실패ㅠ");
+						}
+					}
+				});
+				reconnect.start();
+				Thread.sleep(5000);
+				if(writech.isOpen()) {
+					reconnect.interrupt();
+					start();
+				}
+			} catch (InterruptedException e1) {
+				e1.printStackTrace();
+			}
 		}
-		
 	}
 	
 	public void analysisPacket(String packet) {
@@ -144,9 +200,9 @@ public class MonitorClient extends Thread {
 			String msg = null;
 			if(detailData.length == 3) {
 				msg = stateCode.get("MSG");
+				
 			}
 			
-			SimpleDateFormat sdf = new SimpleDateFormat("yyyy:MM:dd-HH:mm:ss");
 			String errorTime = sdf.format(new Date(Long.parseLong(time)));
 			String dateTime = sdf.format(new Date());
 			
@@ -154,15 +210,19 @@ public class MonitorClient extends Thread {
 			logger.debug("Scode : {}", scode);
 			logger.debug("Msg : {}", msg);
 			
-			mwsocket.setTIME(errorTime);
+			mwsocket.setTIME(dateTime);
 			mwsocket.setSCODE(scode);
 			if(Integer.parseInt(scode) >= 1) {
 				mwsocket.setMSG(msg);
 			}
+			
+			// 에러시 메일 발송
+			if(dateTime.equals(errorTime) && detailData.length == 3) {
+					mail.userSendMail(ip+"`"+port+"`"+errorTime+"`"+msg);
+			}
 			String sendPacket = "";
 			sendPacket += dateTime+"`"+stateHangle.get(scode);
 			if(detailData.length == 3) {
-				logger.debug("error state.");
 				sendPacket += "`"+msg+"`"+errorTime;
 			}
 			mwsocket.sendToWeb(sendPacket);
